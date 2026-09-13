@@ -1,6 +1,6 @@
 # Global Project Configuration
 cmake_minimum_required(VERSION 3.26)
-project(OpenGL-Engine)
+project(ModGeom)
 
 # Find Packages
 find_package(OpenGL REQUIRED)
@@ -25,6 +25,7 @@ set(LIBRARY_SOURCES
 
 set(SOURCES
     src/Blob.cpp
+    src/Surface.cpp
 
     # Assets Module
     src/assets/Camera.cpp

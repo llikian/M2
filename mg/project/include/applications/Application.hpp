@@ -29,15 +29,5 @@ public:
     void run();
 
 private:
-    /**
-     * @brief Draws the background, the scene and handles post processing.
-     */
-    void draw();
-
     Camera camera; ///< The camera.
-
-    bool are_axes_drawn; ///< Whether the axes are drawn.
-
-    vec3 sky_color_low;
-    vec3 sky_color_high;
 };

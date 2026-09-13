@@ -13,8 +13,6 @@
 #include "maths/vec4.hpp"
 #include "Attribute.hpp"
 
-struct Ray;
-
 enum class MeshPrimitive : unsigned char {
     NONE,
     POINTS,
@@ -68,8 +66,6 @@ public:
      */
     void get_min_max_axis_aligned_coordinates(vec3& minimum, vec3& maximum) const;
 
-    float intersect(const Ray& ray, const mat4& model_matrix) const;
-
     /**
      * @brief Delete OpenGL buffers and clears the vertices array and the indices array.
      */
@@ -88,6 +84,10 @@ public:
      * @param model The model matrix to apply.
      */
     void apply_model_matrix(const mat4& model);
+
+    void reserve_vertices(std::size_t vertices_count);
+    void reserve_vertices_and_indices(std::size_t vertices_count, std::size_t indices_count);
+    void shrink_data_to_fit();
 
     /**
      * @brief  Enables an attribute by setting its data type.

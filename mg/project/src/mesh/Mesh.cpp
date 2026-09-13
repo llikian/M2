@@ -191,6 +191,20 @@ void Mesh::apply_model_matrix(const mat4& model) {
     bind_buffers();
 }
 
+void Mesh::reserve_vertices(std::size_t vertices_count) {
+    data.reserve(stride * vertices_count);
+}
+
+void Mesh::reserve_vertices_and_indices(std::size_t vertices_count, std::size_t indices_count) {
+    data.reserve(stride * vertices_count);
+    indices.reserve(indices_count);
+}
+
+void Mesh::shrink_data_to_fit() {
+    data.shrink_to_fit();
+    indices.shrink_to_fit();
+}
+
 void Mesh::enable_attribute(Attribute attribute, AttributeType type) {
     if(type == AttributeType::NONE) { type = get_default_attribute_type(attribute); }
 
