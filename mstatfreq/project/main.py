@@ -45,11 +45,6 @@ def elfros_leung(sample_img, output_size, neighborhood_size):
     while np.min(mask) != False:
         index_max = np.argmax(neighbors) # 1D index, need to convert
 
-    # output[rand_x : rand_x + seed_size, rand_y : rand_y + seed_size] = seed
-    # mask[rand_x : rand_x + seed_size, rand_y : rand_y + seed_size] = True
-
-    
-
     output = Image.fromarray(output)
     output.show()
     
