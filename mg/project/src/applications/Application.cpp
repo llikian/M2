@@ -47,8 +47,8 @@ void Application::run() {
     // SphereBlob* sphere = surface.add<SphereBlob>(vec3(0.0f, 4.0f, 0.0f), 1.0f);
 
     int n = 50;
-    vec3 min(-5.0f);
-    vec3 max(5.0f);
+    vec3 min(-10.0f);
+    vec3 max(10.0f);
     for(int i = 0; i < n; ++i) { surface.add<SphereBlob>(Random::get_vec3(min, max), Random::get_float(1.0f, 5.0f)); }
 
     Mesh surface_mesh = surface.compute_mesh();

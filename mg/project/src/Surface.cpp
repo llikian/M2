@@ -13,6 +13,11 @@
 #include "utility/LifetimeLogger.hpp"
 #include "marching_cube_tables.hpp"
 
+bool operator<(const AABB& left, const AABB& right) {
+    // TODO: check if this correct
+    return left.second.x < right.first.x || left.second.y < right.first.y || left.second.z < right.first.z;
+}
+
 Surface::~Surface() {
     for(auto& blob : blobs) { delete blob; }
 }
@@ -36,23 +41,23 @@ Surface::~Surface() {
     mesh.set_primitive(MeshPrimitive::TRIANGLES);
     mesh.enable_attribute(ATTRIBUTE_NORMAL);
 
-    compute_AABBs();
+    std::vector<AABB> aabbs = compute_AABBs();
     int cubes_in_smallest_blob = 8;
     float grid_size = compute_min_radius() / static_cast<float>(cubes_in_smallest_blob);
 
-    for(std::size_t i = 0; i < blobs.size(); ++i) {
-        const AABB& aabb = aabbs[i];
+    std::vector<PointImplicit> points;
 
+    for(const AABB& aabb : aabbs) {
         vec3 aabb_span = aabb.second - aabb.first;
         // Use a region slightly larger than the bounding box of the surface
-        // vec3 margin = 0.05f * aabb_span;
-        // vec3 corner = aabb.first - margin;
-        // aabb_span = aabb.second + margin - corner;
-        vec3 corner = aabb.first;
+        vec3 margin = 0.05f * aabb_span;
+        vec3 corner = aabb.first - margin;
+        aabb_span = aabb.second + margin - corner;
+        corner = vec3(std::floor(corner.x), std::floor(corner.y), std::floor(corner.z));
 
         vector3<std::size_t> span(aabb_span.x / grid_size, aabb_span.y / grid_size, aabb_span.z / grid_size);
 
-        std::vector<PointImplicit> points(span.x * span.y * span.z);
+        points.resize(span.x * span.y * span.z);
 
         for(std::size_t x = 0; x < span.x; ++x) {
             for(std::size_t y = 0; y < span.y; ++y) {
@@ -126,9 +131,11 @@ Surface::~Surface() {
     return radius;
 }
 
-void Surface::compute_AABBs() {
+[[nodiscard]] std::vector<AABB> Surface::compute_AABBs() const {
+    std::vector<AABB> aabbs;
     aabbs.reserve(blobs.size());
-    for(auto& blob : blobs) { aabbs.push_back(blob->compute_AABB()); }
+    for(Blob* blob : blobs) { aabbs.push_back(blob->compute_AABB()); }
+    return aabbs;
 }
 
 [[nodiscard]] vec3 Surface::interpolate_edge(const PointImplicit& A, const PointImplicit& B) {

@@ -11,6 +11,8 @@
 
 using AABB = std::pair<vec3, vec3>;
 
+bool operator<(const AABB& left, const AABB& right);
+
 struct PointImplicit {
     PointImplicit() : point(0.0f), implicit(0.0f) {}
 
@@ -47,7 +49,7 @@ public:
 
     [[nodiscard]] float compute_min_radius() const;
 
-    void compute_AABBs();
+    [[nodiscard]] std::vector<AABB> compute_AABBs() const;
 
     [[nodiscard]] static vec3 interpolate_edge(const PointImplicit& A, const PointImplicit& B);
 
