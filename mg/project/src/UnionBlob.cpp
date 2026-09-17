@@ -13,8 +13,7 @@ void UnionBlob::traverse(std::size_t& count, std::vector<AABB>& aabbs) {
 };
 
 [[nodiscard]] float UnionBlob::potential(const vec3& point) const {
-    // return std::max(left->potential(point), right->potential(point));
-    return left->potential(point) + right->potential(point);
+    return std::max(left->potential(point), right->potential(point));
     // TODO: check which formula should be used
 }
 
