@@ -17,18 +17,19 @@ float attenuation_wyvill(float distance_sqr, int n) {
     return result;
 }
 
-float attenuation_polynomial(float distance_sqr) {
-    return pow2(1.0f - distance_sqr) * (1.0f - (4.0f / 9.0f) * distance_sqr);
+float aabb_radius(float radius) {
+    return radius * 0.75f;
 }
 
 [[nodiscard]] float SphereBlob::potential(const vec3& point) const {
-    float distance_sqr = length2(center - point) / (radius * radius);
+    float distance_sqr = length2(center - point) / radius_sqr;
     if(distance_sqr >= 1.0f) { return 0.0f; }
-    return attenuation_wyvill(distance_sqr, 2);
+    return attenuation_wyvill(distance_sqr, WYVILL_COUNT);
 }
 
-[[nodiscard]] std::pair<vec3, vec3> SphereBlob::compute_AABB() const {
-    return { center - radius, center + radius };
+[[nodiscard]] AABB SphereBlob::compute_AABB() const {
+    float r = aabb_radius(radius);
+    return AABB(center - r, center + r);
 }
 
 [[nodiscard]] float CapsuleBlob::potential(const vec3& point) const {
@@ -38,11 +39,12 @@ float attenuation_polynomial(float distance_sqr) {
     float t = (dist_AB_sqr > 0.0f) ? dot(point - A, AB) / dist_AB_sqr : 0.0f;
     t = std::clamp(t, 0.0f, 1.0f);
 
-    float distance_sqr = length2(point - (A + t * AB)) / (radius * radius);
+    float distance_sqr = length2(point - (A + t * AB)) / radius_sqr;
     if(distance_sqr >= 1.0f) { return 0.0f; }
-    return attenuation_wyvill(distance_sqr, 2);
+    return attenuation_wyvill(distance_sqr, WYVILL_COUNT);
 }
 
-[[nodiscard]] std::pair<vec3, vec3> CapsuleBlob::compute_AABB() const {
-    return { min(A, B) - radius, max(A, B) + radius };
+[[nodiscard]] AABB CapsuleBlob::compute_AABB() const {
+    float r = aabb_radius(radius);
+    return AABB(min(A, B) - r, max(A, B) + r);
 }
