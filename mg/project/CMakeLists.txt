@@ -26,10 +26,7 @@ set(LIBRARY_SOURCES
 set(SOURCES
     src/AABB.cpp
     src/Blob.cpp
-    src/DifferenceBlob.cpp
-    src/IntersectionBlob.cpp
     src/Surface.cpp
-    src/UnionBlob.cpp
 
     # Assets Module
     src/assets/Camera.cpp

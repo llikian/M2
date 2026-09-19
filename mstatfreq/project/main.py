@@ -51,7 +51,7 @@ def elfros_leung(sample_img, output_size, neighborhood_size):
 
 if __name__ == "__main__":
     img = Image.open("data/text0.png")
-    elfros_leung(img, 128, int(min(img.size[0] / 8, img.size[1] / 8)))
+    elfros_leung(img, 64, 8)
 
     # arr = np.zeros((5, 5), dtype=np.int16)
     # print(arr)

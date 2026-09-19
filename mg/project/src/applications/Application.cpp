@@ -14,13 +14,10 @@
 #include "maths/geometry.hpp"
 #include "mesh/primitives.hpp"
 #include "utility/Random.hpp"
-#include "DifferenceBlob.hpp"
 #include "imgui.h"
 #include "imgui_impl_glfw.h"
 #include "imgui_impl_opengl3.h"
-#include "IntersectionBlob.hpp"
 #include "Surface.hpp"
-#include "UnionBlob.hpp"
 
 Application::Application() : camera(vec3(0.0f, 0.0f, 3.0f), PI_HALF_F, 0.1f, 1024.0f) {
     /* ---- Event Handler ---- */
@@ -45,7 +42,7 @@ Application::~Application() {
 }
 
 Blob* add_recursive_spheres(int depth) {
-    float bound_len = 4.0f;
+    float bound_len = 7.0f;
     static const vec3 min_bound(-bound_len);
     static const vec3 max_bound(bound_len);
     static const float min_radius = 1.0f;
@@ -55,19 +52,10 @@ Blob* add_recursive_spheres(int depth) {
         return new SphereBlob(Random::get_vec3(min_bound, max_bound), Random::get_float(min_radius, max_radius));
     }
 
-    if(Random::get_float(0.0f, 1.0f) > 0.2f) {
-        return new UnionBlob(add_recursive_spheres(depth - 1), add_recursive_spheres(depth - 1));
-    } else {
-        return new DifferenceBlob(add_recursive_spheres(depth - 1), add_recursive_spheres(depth - 1));
-    }
+    return new SumBlob(add_recursive_spheres(depth - 1), add_recursive_spheres(depth - 1));
 }
 
 void Application::run() {
-    bool are_aabbs_shown = true;
-    EventHandler::associate_action_to_key(GLFW_KEY_B, false, [&are_aabbs_shown]() {
-        are_aabbs_shown = !are_aabbs_shown;
-    });
-
     Surface surface;
 
     // SphereBlob A(vec3(0.0f, 0.0f, 0.0f), 3.0f);
@@ -80,14 +68,8 @@ void Application::run() {
     // UnionBlob AuB(&A, &B);
 
     Blob* root = add_recursive_spheres(7);
-
     surface.root = root;
-
-    std::vector<AABB> aabbs;
-    Mesh surface_mesh = surface.compute_mesh(aabbs);
-
-    Mesh wireframe_cube;
-    create_wireframe_cube_mesh(wireframe_cube);
+    Mesh surface_mesh = surface.compute_mesh(100);
 
     Shader shader({ "shaders/default.vert", "shaders/default.frag" }, "Default");
     Shader line_shader({ "shaders/line_mesh.vert", "shaders/line_mesh.frag" }, "Line Mesh");
@@ -114,17 +96,6 @@ void Application::run() {
         shader.set_uniform("u_camera_front", camera.get_direction());
 
         surface_mesh.draw();
-
-        if(are_aabbs_shown) {
-            line_shader.use();
-            glLineWidth(3.0f);
-            line_shader.set_uniform("u_color", vec3(1, 0, 0));
-            for(const auto& aabb : aabbs) {
-                line_shader.set_uniform("u_mvp", vp_matrix * aabb.get_global_model_matrix());
-                wireframe_cube.draw();
-            }
-            glLineWidth(1.0f);
-        }
 
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

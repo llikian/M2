@@ -12,6 +12,7 @@
 #include <map>
 #include "glad/glad.h"
 #include "maths/geometry.hpp"
+#include "imgui.h"
 
 bool is_whitespace(const std::string& line) {
     for(unsigned char c : line) {
@@ -27,7 +28,7 @@ std::ostream& operator<<(std::ostream& stream, const Mesh::Triangle& tri) {
 }
 
 std::ostream& operator<(std::ostream& stream, const Mesh::Face& face) {
-    stream << "faces: (" << face.face_a << ", " << face.face_b << ", " << face.face_c << ")\n";
+    stream << "faces: (" << face.alpha << ", " << face.beta << ", " << face.gamma << ")\n";
     return stream;
 }
 
@@ -36,9 +37,9 @@ Mesh::Vertex::Vertex(float x, float y, float z, unsigned int face) : position(x,
 Mesh::Triangle::Triangle(unsigned int a, unsigned int b, unsigned int c) : a(a), b(b), c(c) {}
 
 Mesh::Face::Face(unsigned int face_a, unsigned int face_b, unsigned int face_c)
-    : face_a(face_a),
-      face_b(face_b),
-      face_c(face_c) {}
+    : alpha(face_a),
+      beta(face_b),
+      gamma(face_c) {}
 
 void Mesh::make_tetrahedron(vec3 top, vec3 A, vec3 B, vec3 C) {
     vertices.emplace_back(top.x, top.y, top.z, 0);
@@ -46,13 +47,13 @@ void Mesh::make_tetrahedron(vec3 top, vec3 A, vec3 B, vec3 C) {
     vertices.emplace_back(B.x, B.y, B.z, 1);
     vertices.emplace_back(C.x, C.y, C.z, 2);
 
-    indices.emplace_back(0, 1, 2);
+    triangles.emplace_back(0, 1, 2);
     faces.emplace_back(3, 1, 2);
-    indices.emplace_back(0, 2, 3);
+    triangles.emplace_back(0, 2, 3);
     faces.emplace_back(3, 2, 0);
-    indices.emplace_back(0, 3, 1);
+    triangles.emplace_back(0, 3, 1);
     faces.emplace_back(3, 0, 1);
-    indices.emplace_back(1, 3, 2);
+    triangles.emplace_back(1, 3, 2);
     faces.emplace_back(1, 0, 2);
 }
 
@@ -63,17 +64,17 @@ void Mesh::make_square_pyramid(vec3 top, vec3 A, vec3 B, vec3 C, vec3 D) {
     vertices.emplace_back(C.x, C.y, C.z, 1);       // 3
     vertices.emplace_back(D.x, D.y, D.z, 1);       // 4
 
-    indices.emplace_back(0, 1, 2); // 0
+    triangles.emplace_back(0, 1, 2); // 0
     faces.emplace_back(4, 1, 3);
-    indices.emplace_back(0, 2, 3); // 1
+    triangles.emplace_back(0, 2, 3); // 1
     faces.emplace_back(4, 2, 0);
-    indices.emplace_back(0, 3, 4); // 2
+    triangles.emplace_back(0, 3, 4); // 2
     faces.emplace_back(5, 3, 1);
-    indices.emplace_back(0, 4, 1); // 3
+    triangles.emplace_back(0, 4, 1); // 3
     faces.emplace_back(5, 0, 2);
-    indices.emplace_back(1, 3, 2); // 4
+    triangles.emplace_back(1, 3, 2); // 4
     faces.emplace_back(1, 0, 5);
-    indices.emplace_back(1, 4, 3); // 5
+    triangles.emplace_back(1, 4, 3); // 5
     faces.emplace_back(2, 4, 3);
 }
 
@@ -87,17 +88,17 @@ void Mesh::make_bounding_box_2D(float min_x, float min_y, float max_x, float max
                           std::numeric_limits<float>::infinity(),
                           2); // 4 - artificial infinite vertex
 
-    indices.emplace_back(0, 1, 2); // 0 - triangle
+    triangles.emplace_back(0, 1, 2); // 0 - triangle
     faces.emplace_back(4, 1, 5);
-    indices.emplace_back(0, 2, 3); // 1 - triangle
+    triangles.emplace_back(0, 2, 3); // 1 - triangle
     faces.emplace_back(3, 2, 0);
-    indices.emplace_back(4, 0, 3); // 2 - artificial triangle
+    triangles.emplace_back(4, 0, 3); // 2 - artificial triangle
     faces.emplace_back(1, 3, 5);
-    indices.emplace_back(4, 3, 2); // 3 - artificial triangle
+    triangles.emplace_back(4, 3, 2); // 3 - artificial triangle
     faces.emplace_back(1, 4, 2);
-    indices.emplace_back(4, 1, 2); // 4 - artificial triangle
+    triangles.emplace_back(4, 1, 2); // 4 - artificial triangle
     faces.emplace_back(0, 3, 5);
-    indices.emplace_back(4, 1, 0); // 5 - artificial triangle
+    triangles.emplace_back(4, 1, 0); // 5 - artificial triangle
     faces.emplace_back(0, 2, 4);
 }
 
@@ -121,16 +122,16 @@ void Mesh::bind_buffers() {
     /* Indices & EBO */
     glGenBuffers(1, &EBO);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(Triangle), indices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, triangles.size() * sizeof(Triangle), triangles.data(), GL_STATIC_DRAW);
 }
 
 void Mesh::draw() {
     glBindVertexArray(VAO);
-    glDrawElements(GL_TRIANGLES, indices.size() * 3, GL_UNSIGNED_INT, nullptr);
+    glDrawElements(GL_TRIANGLES, triangles.size() * 3, GL_UNSIGNED_INT, nullptr);
 }
 
 void Mesh::compute_normals() {
-    for(const Triangle& tri : indices) {
+    for(const Triangle& tri : triangles) {
         const vec3& A = vertices[tri.a].position;
         const vec3& B = vertices[tri.b].position;
         const vec3& C = vertices[tri.c].position;
@@ -149,13 +150,13 @@ void Mesh::save_to_off(const std::filesystem::path& path) {
     std::ofstream out(path);
 
     out << "OFF\n";
-    out << vertices.size() << ' ' << indices.size() << ' ' << 0 << '\n';
+    out << vertices.size() << ' ' << triangles.size() << ' ' << 0 << '\n';
 
     out << '\n';
     for(const Vertex& v : vertices) { out << v.position.x << ' ' << v.position.y << ' ' << v.position.z << '\n'; }
 
     out << '\n';
-    for(const Triangle& t : indices) { out << 3 << ' ' << t.a << ' ' << t.b << ' ' << t.c << '\n'; }
+    for(const Triangle& t : triangles) { out << 3 << ' ' << t.a << ' ' << t.b << ' ' << t.c << '\n'; }
 }
 
 void Mesh::load_from_off(const std::filesystem::path& path) {
@@ -179,7 +180,7 @@ void Mesh::load_from_off(const std::filesystem::path& path) {
     std::cout << vertex_count << ' ' << face_count << '\n';
 
     vertices.reserve(vertex_count + 1);
-    indices.reserve(face_count);
+    triangles.reserve(face_count);
     faces.reserve(face_count);
 
     std::vector<unsigned int> face_indices;
@@ -204,8 +205,8 @@ void Mesh::load_from_off(const std::filesystem::path& path) {
         if(ite == edges.end()) {
             edges.emplace(pair_uu(a, b), pair_uu(face, local_index));
         } else {
-            (&faces[face].face_a)[local_index] = ite->second.first;
-            (&faces[ite->second.first].face_a)[ite->second.second] = face;
+            faces[face][local_index] = ite->second.first;
+            faces[ite->second.first][ite->second.second] = face;
 
             edges.erase(ite);
         }
@@ -226,9 +227,9 @@ void Mesh::load_from_off(const std::filesystem::path& path) {
             unsigned int a = face_indices[0];
             unsigned int b = face_indices[i + 1];
             unsigned int c = face_indices[i + 2];
-            unsigned int face = indices.size();
+            unsigned int face = triangles.size();
 
-            indices.emplace_back(a, b, c);
+            triangles.emplace_back(a, b, c);
             faces.emplace_back(-1, -1, -1);
 
             vertices[a].face = vertices[b].face = vertices[c].face = face;
@@ -239,13 +240,13 @@ void Mesh::load_from_off(const std::filesystem::path& path) {
         }
     }
 
-    unsigned int triangle_count = indices.size();
+    unsigned int triangle_count = triangles.size();
 
     if(!edges.empty()) {
         throw std::runtime_error("Unhandled case : There's an edge.");
 
-        indices.reserve(indices.size() + edges.size());
-        faces.reserve(indices.size() + edges.size());
+        triangles.reserve(triangles.size() + edges.size());
+        faces.reserve(triangles.size() + edges.size());
 
         unsigned int artificial_vertex_id = vertices.size();
         vertices.emplace_back(INFINITY, INFINITY, INFINITY, triangle_count);
@@ -261,22 +262,102 @@ void Mesh::load_from_off(const std::filesystem::path& path) {
             const auto [a, b] = e.first;
             const auto [face, local_index] = e.second;
 
-            indices.emplace_back(artificial_vertex_id, b, a);
+            triangles.emplace_back(artificial_vertex_id, b, a);
             faces.emplace_back(face, -1, -1);
 
             find_opposite_edge(a, artificial_vertex_id, face, 1);
             find_opposite_edge(artificial_vertex_id, b, face, 2);
 
-            (&faces[face].face_a)[local_index] = faces.size() - 1;
+            faces[face][local_index] = faces.size() - 1;
         }
     }
 
     if(!check()) { throw std::runtime_error("Mesh check failed"); }
 }
 
+void Mesh::triangle_split(unsigned int face, const vec3& point) {
+    vertices.emplace_back(point.x, point.y, point.x, face);
+    unsigned int p = vertices.size() - 1;
+    Triangle old_tri = triangles[face];
+    Face old_face = faces[face];
+    unsigned int face1 = faces.size();
+    unsigned int face2 = faces.size() + 1;
+
+    triangles[face] = Triangle(old_tri.a, old_tri.b, p);
+    faces[face] = Face(face1, face2, old_face.gamma);
+    triangles.emplace_back(old_tri.b, old_tri.c, p);
+    faces.emplace_back(face2, face, old_face.alpha);
+    triangles.emplace_back(old_tri.c, old_tri.a, p);
+    faces.emplace_back(face, face1, old_face.beta);
+
+    for(int i = 0; i < 3; ++i) {
+        if(triangles[old_face.alpha][i] == face) { triangles[old_face.alpha][i] = face1; }
+        if(triangles[old_face.beta][i] == face) { triangles[old_face.beta][i] = face2; }
+    }
+}
+
+/**
+ *       a
+ *      /|\
+ * fDA / | \ fAC
+ *    /f1|f0\
+ *   d---p---c
+ *    \f2|f3/
+ * fBD \ | / fCB
+ *      \|/
+ *       b
+ *
+ * f0 = face
+ * c = vertex
+ */
+void Mesh::edge_split(unsigned int face, unsigned int vertex, const vec3& point) {
+    vertices.emplace_back(point.x, point.y, point.x, face);
+    unsigned int p = vertices.size() - 1;
+
+    unsigned int local_index_of_c = get_local_index(vertex, face);
+
+    unsigned int f0 = face;
+    unsigned int f1 = faces[f0][local_index_of_c]; // initially opposite c in f0
+    unsigned int f2 = faces.size();
+    unsigned int f3 = faces.size() + 1;
+
+    unsigned int a = triangles[f0][(local_index_of_c + 1) % 3];
+    unsigned int b = triangles[f0][(local_index_of_c + 2) % 3];
+    unsigned int c = vertex;
+
+    unsigned int local_index_of_d = (get_local_index(a, f1) + 1) % 3;
+    unsigned int d = triangles[f1][local_index_of_d];
+
+    unsigned int fAC = faces[f0][(local_index_of_c + 2) % 3]; // initially opposite b in f0
+    unsigned int fCB = faces[f0][(local_index_of_c + 1) % 3]; // initially opposite a in f0
+    unsigned int fDA = faces[f1][(local_index_of_d + 1) % 3]; // initially opposite b in f1
+    unsigned int fBD = faces[f1][(local_index_of_d + 2) % 3]; // initially opposite a in f1
+
+    triangles.emplace_back(0, 0, 0);
+    triangles.emplace_back(0, 0, 0);
+    faces.emplace_back(0, 0, 0);
+    faces.emplace_back(0, 0, 0);
+
+    triangles[f0] = Triangle(a, p, c);
+    triangles[f1] = Triangle(a, d, p);
+    triangles[f2] = Triangle(d, b, p);
+    triangles[f3] = Triangle(b, c, p);
+
+    faces[f0] = Face(f3, fAC, f1);
+    faces[f1] = Face(f2, f0, fDA);
+    faces[f2] = Face(f3, f1, fBD);
+    faces[f3] = Face(f0, f2, fCB);
+
+    unsigned int local_index_of_d_in_fBD = get_local_index(d, fBD);
+    unsigned int local_index_of_b_in_fCB = get_local_index(b, fCB);
+
+    faces[fBD][(local_index_of_d_in_fBD + 1) % 3] = f2;
+    faces[fCB][(local_index_of_b_in_fCB + 1) % 3] = f3;
+}
+
 bool Mesh::check() const {
     for(unsigned int i = 0; i < vertices.size(); ++i) {
-        const Triangle& tri = indices[vertices[i].face];
+        const Triangle& tri = triangles[vertices[i].face];
         if(tri.a != i && tri.b != i && tri.c != i) {
             std::cerr << "A vertex had the id of a face it wasn't a part of.\n";
             return false;
@@ -284,17 +365,17 @@ bool Mesh::check() const {
     }
 
     for(unsigned int i = 0; i < faces.size(); ++i) {
-        const Triangle& tri = indices[i];
+        const Triangle& tri = triangles[i];
         const Face& face = faces[i];
-        const Triangle& tri_a = indices[face.face_a]; // find opposite of b, c (c, b)
-        const Triangle& tri_b = indices[face.face_b]; // find opposite of c, a (a, c)
-        const Triangle& tri_c = indices[face.face_c]; // find opposite of a, b (b, a)
+        const Triangle& tri_a = triangles[face.alpha]; // find opposite of b, c (c, b)
+        const Triangle& tri_b = triangles[face.beta];  // find opposite of c, a (a, c)
+        const Triangle& tri_c = triangles[face.gamma]; // find opposite of a, b (b, a)
 
         if(!(tri_a.a == tri.c && tri_a.b == tri.b) && //
            !(tri_a.b == tri.c && tri_a.c == tri.b) && //
            !(tri_a.c == tri.c && tri_a.a == tri.b)) {
             std::cerr << "A triangle doesn't have the proper opposite face for a vertex.\n";
-            std::cerr << "tri   (" << i << "): " << tri << "tri_a (" << face.face_a << "): " << tri_a << '\n';
+            std::cerr << "tri   (" << i << "): " << tri << "tri_a (" << face.alpha << "): " << tri_a << '\n';
             return false;
         }
 
@@ -302,7 +383,7 @@ bool Mesh::check() const {
            !(tri_b.b == tri.a && tri_b.c == tri.c) && //
            !(tri_b.c == tri.a && tri_b.a == tri.c)) {
             std::cerr << "A triangle doesn't have the proper opposite face for a vertex.\n";
-            std::cerr << "tri   (" << i << "): " << tri << "tri_b (" << face.face_b << "): " << tri_b << '\n';
+            std::cerr << "tri   (" << i << "): " << tri << "tri_b (" << face.beta << "): " << tri_b << '\n';
             return false;
         }
 
@@ -310,10 +391,86 @@ bool Mesh::check() const {
            !(tri_c.b == tri.b && tri_c.c == tri.a) && //
            !(tri_c.c == tri.b && tri_c.a == tri.a)) {
             std::cerr << "A triangle doesn't have the proper opposite face for a vertex.\n";
-            std::cerr << "tri   (" << i << "): " << tri << "tri_c (" << face.face_c << "): " << tri_c << '\n';
+            std::cerr << "tri   (" << i << "): " << tri << "tri_c (" << face.gamma << "): " << tri_c << '\n';
             return false;
         }
     }
 
     return true;
-};
+}
+
+unsigned int Mesh::get_local_index(unsigned int vertex, unsigned int face) {
+    if(triangles[face][0] == vertex) { return 0; }
+    if(triangles[face][1] == vertex) { return 1; }
+    if(triangles[face][2] == vertex) { return 2; }
+
+    throw std::runtime_error("Vertex is not in face");
+}
+
+void Mesh::draw_imgui_table() const {
+    static bool are_vertices_shown = false;
+
+    if(are_vertices_shown) {
+        if(ImGui::Button("Vertices v")) { are_vertices_shown = !are_vertices_shown; }
+    } else {
+        if(ImGui::Button("Vertices >")) { are_vertices_shown = !are_vertices_shown; }
+    }
+
+    if(are_vertices_shown) {
+        ImGui::BeginTable("Vertices", 3, ImGuiTableFlags_Resizable);
+
+        ImGui::TableSetupColumn("Index");
+        ImGui::TableSetupColumn("Coordinates");
+        ImGui::TableSetupColumn("Face Index");
+        ImGui::TableHeadersRow();
+
+        for(std::size_t i = 0; i < vertices.size(); ++i) {
+            const Vertex& vertex = vertices[i];
+
+            ImGui::TableNextRow();
+
+            ImGui::TableNextColumn();
+            ImGui::Text("%zu", i);
+            ImGui::TableNextColumn();
+            ImGui::Text("( %f ; %f ; %f )", vertex.position.x, vertex.position.y, vertex.position.z);
+            ImGui::TableNextColumn();
+            ImGui::Text("%u", vertex.face);
+        }
+
+        ImGui::EndTable();
+    }
+
+    static bool are_triangles_shown = false;
+
+    if(are_triangles_shown) {
+        if(ImGui::Button("Triangles v")) { are_triangles_shown = !are_triangles_shown; }
+    } else {
+        if(ImGui::Button("Triangles >")) { are_triangles_shown = !are_triangles_shown; }
+    }
+
+    if(are_triangles_shown) {
+        ImGui::BeginTable("Triangles", 3, ImGuiTableFlags_Resizable);
+
+        ImGui::TableSetupColumn("Index");
+        ImGui::TableSetupColumn("Indices");
+        ImGui::TableSetupColumn("Opposites");
+        ImGui::TableHeadersRow();
+
+        for(std::size_t i = 0; i < triangles.size(); ++i) {
+            const Triangle& triangle = triangles[i];
+            const Face& face = faces[i];
+
+            ImGui::TableNextRow();
+
+            ImGui::TableNextColumn();
+            ImGui::Text("%zu", i);
+
+            ImGui::TableNextColumn();
+            ImGui::Text("%d ; %d ; %d", triangle.a, triangle.b, triangle.c);
+            ImGui::TableNextColumn();
+            ImGui::Text("%d ; %d ; %d", face.alpha, face.beta, face.gamma);
+        }
+
+        ImGui::EndTable();
+    }
+}

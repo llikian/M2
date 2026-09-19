@@ -36,145 +36,268 @@ vector3<std::int64_t> lattice_coords(const vec3& p, const vec3& global_origin, f
     return THRESHOLD - root->potential(point);
 }
 
-[[nodiscard]] Mesh Surface::compute_mesh(std::vector<AABB>& aabbs) {
+[[nodiscard]] vec3 Surface::gradient(const vec3& pos) const {
+    float x = implicit(vec3(pos[0] + EPSILON, pos[1], pos[2])) - implicit(vec3(pos[0] - EPSILON, pos[1], pos[2]));
+    float y = implicit(vec3(pos[0], pos[1] + EPSILON, pos[2])) - implicit(vec3(pos[0], pos[1] - EPSILON, pos[2]));
+    float z = implicit(vec3(pos[0], pos[1], pos[2] + EPSILON)) - implicit(vec3(pos[0], pos[1], pos[2] - EPSILON));
+
+    return vec3(x, y, z) * (0.5f / EPSILON);
+}
+
+[[nodiscard]] vec3 Surface::normal(const vec3& pos) const {
+    return normalize(gradient(pos));
+}
+
+[[nodiscard]] vec3 Surface::dichotomy(vec3 a, vec3 b, float va, float vb, float length, double epsilon) const {
+    int ia = va > 0.0 ? 1 : -1;
+
+    vec3 c = (vb * a - va * b) / (vb - va);
+
+    while(length > epsilon) {
+        float vc = implicit(c);
+        int ic = vc > 0.0f ? 1 : -1;
+        if(ia + ic == 0) {
+            b = c;
+        } else {
+            ia = ic;
+            a = c;
+        }
+        length *= 0.5f;
+        c = 0.5f * (a + b);
+    }
+
+    return c;
+}
+
+[[nodiscard]] Mesh Surface::compute_mesh(int n) {
     if(root == nullptr) { throw std::runtime_error("Can't create the mesh for an empty implicit surface"); }
 
     LifetimeLogger lifetime_logger("Mesh creation took: ");
 
     std::size_t blobs_count = 0;
-    root->traverse(blobs_count, aabbs);
+    AABB region = root->get_aabb_and_blob_count(blobs_count);
 
     std::cout << "The scene contains " << blobs_count << " blobs.\n";
-    std::cout << aabbs.size() << " AABBs\n";
+
+    std::vector<vec3> vertices;
+    std::vector<vec3> normals;
+
+    std::vector<int> triangles;
+
+    vertices.reserve(20000);
+    normals.reserve(20000);
+    triangles.reserve(20000);
+
+    int nv = 0;
+    const int nx = n;
+    const int ny = n;
+    const int nz = n;
+
+    // Clamped integer values
+    const int nax = 0;
+    const int nbx = nx;
+    const int nay = 0;
+    const int nby = ny;
+    const int naz = 0;
+    const int nbz = nz;
+
+    const int size = nx * ny;
+
+    // Intensities
+    double* a = new double[size];
+    double* b = new double[size];
+
+    // Vertex
+    vec3* u = new vec3[size];
+    vec3* v = new vec3[size];
+
+    // Edges
+    int* eax = new int[size];
+    int* eay = new int[size];
+    int* ebx = new int[size];
+    int* eby = new int[size];
+    int* ez = new int[size];
+
+    // Diagonal of a cell
+    vec3 d = (region.max - region.min) / static_cast<float>(n - 1);
+
+    double za = 0.0;
+
+    // Compute field inside lower Oxy plane
+    for(int i = nax; i < nbx; i++) {
+        for(int j = nay; j < nby; j++) {
+            u[i * ny + j] = region.min + vec3(i * d[0], j * d[1], za);
+            a[i * ny + j] = implicit(u[i * ny + j]);
+        }
+    }
+
+    // Compute straddling edges inside lower Oxy plane
+    for(int i = nax; i < nbx - 1; i++) {
+        for(int j = nay; j < nby; j++) {
+            // We need a xor b, which can be implemented a == !b
+            if(!((a[i * ny + j] < 0.0) == !(a[(i + 1) * ny + j] >= 0.0))) {
+                vertices.push_back(
+                    dichotomy(u[i * ny + j], u[(i + 1) * ny + j], a[i * ny + j], a[(i + 1) * ny + j], d[0], EPSILON));
+                normals.push_back(normal(vertices.back()));
+                eax[i * ny + j] = nv;
+                nv++;
+            }
+        }
+    }
+    for(int i = nax; i < nbx; i++) {
+        for(int j = nay; j < nby - 1; j++) {
+            if(!((a[i * ny + j] < 0.0) == !(a[i * ny + (j + 1)] >= 0.0))) {
+                vertices.push_back(
+                    dichotomy(u[i * ny + j], u[i * ny + (j + 1)], a[i * ny + j], a[i * ny + (j + 1)], d[1], EPSILON));
+                normals.push_back(normal(vertices.back()));
+                eay[i * ny + j] = nv;
+                nv++;
+            }
+        }
+    }
+
+    // Array for edge vertices
+    int e[12];
+
+    // For all layers
+    for(int k = naz; k < nbz; k++) {
+        double zb = za + d[2];
+        for(int i = nax; i < nbx; i++) {
+            for(int j = nay; j < nby; j++) {
+                v[i * ny + j] = region.min + vec3(i * d[0], j * d[1], zb);
+                b[i * ny + j] = implicit(v[i * ny + j]);
+            }
+        }
+
+        // Compute straddling edges inside lower Oxy plane
+        for(int i = nax; i < nbx - 1; i++) {
+            for(int j = nay; j < nby; j++) {
+                //   if (((b[i*ny + j] < 0.0) && (b[(i + 1)*ny + j] >= 0.0)) || ((b[i*ny + j] >= 0.0) && (b[(i + 1)*ny +
+                //   j] < 0.0)))
+                if(!((b[i * ny + j] < 0.0) == !(b[(i + 1) * ny + j] >= 0.0))) {
+                    vertices.push_back(dichotomy(v[i * ny + j],
+                                                 v[(i + 1) * ny + j],
+                                                 b[i * ny + j],
+                                                 b[(i + 1) * ny + j],
+                                                 d[0],
+                                                 EPSILON));
+                    normals.push_back(normal(vertices.back()));
+                    ebx[i * ny + j] = nv;
+                    nv++;
+                }
+            }
+        }
+
+        for(int i = nax; i < nbx; i++) {
+            for(int j = nay; j < nby - 1; j++) {
+                // if (((b[i*ny + j] < 0.0) && (b[i*ny + (j + 1)] >= 0.0)) || ((b[i*ny + j] >= 0.0) && (b[i*ny + (j +
+                // 1)] < 0.0)))
+                if(!((b[i * ny + j] < 0.0) == !(b[i * ny + (j + 1)] >= 0.0))) {
+                    vertices.push_back(dichotomy(v[i * ny + j],
+                                                 v[i * ny + (j + 1)],
+                                                 b[i * ny + j],
+                                                 b[i * ny + (j + 1)],
+                                                 d[1],
+                                                 EPSILON));
+                    normals.push_back(normal(vertices.back()));
+                    eby[i * ny + j] = nv;
+                    nv++;
+                }
+            }
+        }
+
+        // Create vertical straddling edges
+        for(int i = nax; i < nbx; i++) {
+            for(int j = nay; j < nby; j++) {
+                // if ((a[i*ny + j] < 0.0) && (b[i*ny + j] >= 0.0) || (a[i*ny + j] >= 0.0) && (b[i*ny + j] < 0.0))
+                if(!((a[i * ny + j] < 0.0) == !(b[i * ny + j] >= 0.0))) {
+                    vertices.push_back(
+                        dichotomy(u[i * ny + j], v[i * ny + j], a[i * ny + j], b[i * ny + j], d[2], EPSILON));
+                    normals.push_back(normal(vertices.back()));
+                    ez[i * ny + j] = nv;
+                    nv++;
+                }
+            }
+        }
+
+        // Create mesh
+        for(int i = nax; i < nbx - 1; i++) {
+            for(int j = nay; j < nby - 1; j++) {
+                int cubeindex = 0;
+                if(a[i * ny + j] < 0.0) { cubeindex |= 1; }
+                if(a[(i + 1) * ny + j] < 0.0) { cubeindex |= 2; }
+                if(a[i * ny + j + 1] < 0.0) { cubeindex |= 4; }
+                if(a[(i + 1) * ny + j + 1] < 0.0) { cubeindex |= 8; }
+                if(b[i * ny + j] < 0.0) { cubeindex |= 16; }
+                if(b[(i + 1) * ny + j] < 0.0) { cubeindex |= 32; }
+                if(b[i * ny + j + 1] < 0.0) { cubeindex |= 64; }
+                if(b[(i + 1) * ny + j + 1] < 0.0) { cubeindex |= 128; }
+
+                // Cube is straddling the surface
+                if((cubeindex != 255) && (cubeindex != 0)) {
+                    e[0] = eax[i * ny + j];
+                    e[1] = eax[i * ny + (j + 1)];
+                    e[2] = ebx[i * ny + j];
+                    e[3] = ebx[i * ny + (j + 1)];
+                    e[4] = eay[i * ny + j];
+                    e[5] = eay[(i + 1) * ny + j];
+                    e[6] = eby[i * ny + j];
+                    e[7] = eby[(i + 1) * ny + j];
+                    e[8] = ez[i * ny + j];
+                    e[9] = ez[(i + 1) * ny + j];
+                    e[10] = ez[i * ny + (j + 1)];
+                    e[11] = ez[(i + 1) * ny + (j + 1)];
+
+                    for(int h = 0; mc_triangles_table[cubeindex][h] != -1; h += 3) {
+                        triangles.push_back(e[mc_triangles_table[cubeindex][h + 0]]);
+                        triangles.push_back(e[mc_triangles_table[cubeindex][h + 1]]);
+                        triangles.push_back(e[mc_triangles_table[cubeindex][h + 2]]);
+                    }
+                }
+            }
+        }
+
+        std::swap(a, b);
+
+        za = zb;
+        std::swap(eax, ebx);
+        std::swap(eay, eby);
+        std::swap(u, v);
+    }
+
+    delete[] a;
+    delete[] b;
+    delete[] u;
+    delete[] v;
+
+    delete[] eax;
+    delete[] eay;
+    delete[] ebx;
+    delete[] eby;
+    delete[] ez;
+
+    std::cout << "Vertices: " << vertices.size() << '\n';
+    std::cout << "Triangles: " << triangles.size() / 3 << '\n';
 
     Mesh mesh;
     mesh.set_primitive(MeshPrimitive::TRIANGLES);
     mesh.enable_attribute(ATTRIBUTE_NORMAL);
 
-    vec3 global_min = aabbs[0].min;
-    for(std::size_t i = 1; i < aabbs.size(); ++i) {
-        global_min = vec3(std::min(global_min.x, aabbs[i].min.x),
-                          std::min(global_min.y, aabbs[i].min.y),
-                          std::min(global_min.z, aabbs[i].min.z));
+    mesh.reserve_vertices_and_indices(vertices.size(), triangles.size());
+    for(auto& normal : normals) { normal = vec3(0.0f); }
+    for(std::size_t i = 0; i + 2 < triangles.size(); i += 3) {
+        mesh.add_triangle(triangles[i], triangles[i + 2], triangles[i + 1]);
+
+        const vec3 normal = cross(vertices[triangles[i + 2]] - vertices[triangles[i]],
+                                  vertices[triangles[i + 1]] - vertices[triangles[i]]);
+
+        normals[triangles[i]] += normal;
+        normals[triangles[i + 1]] += normal;
+        normals[triangles[i + 2]] += normal;
     }
-
-    std::cout << "Using a grid size of " << GRID_SIZE << '\n';
-
-    std::unordered_set<std::uint64_t> visited_cubes;
-    std::unordered_map<std::uint64_t, PointImplicit> points;
-
-    const auto get_point = [&](std::int64_t x, std::int64_t y, std::int64_t z) -> const PointImplicit& {
-        std::uint64_t key = pack_cell(x, y, z);
-        auto [ite, inserted] = points.try_emplace(key);
-
-        if(inserted) {
-            ite->second.point = global_min + GRID_SIZE * vec3(x, y, z);
-            ite->second.implicit = implicit(ite->second.point);
-        }
-
-        return ite->second;
-    };
-
-    for(const AABB& aabb : aabbs) {
-        vector3<std::int64_t> min_corner = lattice_coords(aabb.min, global_min, GRID_SIZE);
-        vector3<std::int64_t> max_corner = lattice_coords(aabb.max, global_min, GRID_SIZE);
-
-        for(std::int64_t x = min_corner.x; x < max_corner.x; ++x) {
-            for(std::int64_t y = min_corner.y; y < max_corner.y; ++y) {
-                for(std::int64_t z = min_corner.z; z < max_corner.z; ++z) {
-                    std::uint64_t key = pack_cell(x, y, z);
-                    if(!visited_cubes.insert(key).second) { continue; }
-
-                    const PointImplicit& p0 = get_point(x, y, z);
-                    const PointImplicit& p1 = get_point(x + 1, y, z);
-                    const PointImplicit& p2 = get_point(x + 1, y, z + 1);
-                    const PointImplicit& p3 = get_point(x, y, z + 1);
-                    const PointImplicit& p4 = get_point(x, y + 1, z);
-                    const PointImplicit& p5 = get_point(x + 1, y + 1, z);
-                    const PointImplicit& p6 = get_point(x + 1, y + 1, z + 1);
-                    const PointImplicit& p7 = get_point(x, y + 1, z + 1);
-
-                    const PointImplicit* corners[8] = { &p0, &p1, &p2, &p3, &p4, &p5, &p6, &p7 };
-
-                    int cube_index = 0;
-                    if(corners[0]->implicit < 0.0f) { cube_index |= 1; }
-                    if(corners[1]->implicit < 0.0f) { cube_index |= 2; }
-                    if(corners[2]->implicit < 0.0f) { cube_index |= 4; }
-                    if(corners[3]->implicit < 0.0f) { cube_index |= 8; }
-                    if(corners[4]->implicit < 0.0f) { cube_index |= 16; }
-                    if(corners[5]->implicit < 0.0f) { cube_index |= 32; }
-                    if(corners[6]->implicit < 0.0f) { cube_index |= 64; }
-                    if(corners[7]->implicit < 0.0f) { cube_index |= 128; }
-
-                    for(int i = 0; mc_triangles_table[cube_index][i] != -1; i += 3) {
-                        int a0 = mc_edge_to_vertex_table[mc_triangles_table[cube_index][i]][0];
-                        int b0 = mc_edge_to_vertex_table[mc_triangles_table[cube_index][i]][1];
-                        vec3 A = interpolate_edge(*corners[a0], *corners[b0]);
-
-                        int a1 = mc_edge_to_vertex_table[mc_triangles_table[cube_index][i + 1]][0];
-                        int b1 = mc_edge_to_vertex_table[mc_triangles_table[cube_index][i + 1]][1];
-                        vec3 B = interpolate_edge(*corners[a1], *corners[b1]);
-
-                        int a2 = mc_edge_to_vertex_table[mc_triangles_table[cube_index][i + 2]][0];
-                        int b2 = mc_edge_to_vertex_table[mc_triangles_table[cube_index][i + 2]][1];
-                        vec3 C = interpolate_edge(*corners[a2], *corners[b2]);
-
-                        vec3 normal = normalize(cross(B - A, C - A));
-
-                        mesh.add_vertex(A, normal);
-                        mesh.add_vertex(B, normal);
-                        mesh.add_vertex(C, normal);
-                    }
-                }
-            }
-        }
-    }
+    for(std::size_t i = 0; i < vertices.size(); ++i) { mesh.add_vertex(vertices[i], normals[i]); }
 
     mesh.bind_buffers();
 
-    std::cout << "The mesh has " << mesh.get_vertices_amount() << " vertices.\n";
-
     return mesh;
-}
-
-[[nodiscard]] float Surface::compute_min_radius() const {
-    // float radius = blobs[0]->get_radius();
-    // for(std::size_t i = 1; i < blobs.size(); ++i) { radius = std::min(radius, blobs[i]->get_radius()); }
-    // return radius;
-}
-
-[[nodiscard]] std::vector<AABB> Surface::compute_AABBs() const {
-    // std::vector<AABB> aabbs;
-    // aabbs.reserve(blobs.size());
-    // for(Blob* blob : blobs) { aabbs.push_back(blob->compute_AABB()); }
-
-    // std::vector<bool> should_stay(aabbs.size(), true);
-    // for(std::size_t i = 0; i + 1 < aabbs.size(); ++i) {
-    //     const AABB& A = aabbs[i];
-
-    //     for(std::size_t j = i + 1; j < aabbs.size(); ++j) {
-    //         const AABB& B = aabbs[j];
-
-    //         if(A.is_point_inside(B.min) && A.is_point_inside(B.max)) {
-    //             should_stay[j] = false;
-    //         } else if(B.is_point_inside(A.min) && B.is_point_inside(A.max)) {
-    //             should_stay[i] = false;
-    //         }
-    //     }
-    // }
-    // std::vector<AABB> final_aabbs;
-    // final_aabbs.reserve(blobs.size());
-    // for(std::size_t i = 0; i < aabbs.size(); ++i) {
-    //     if(should_stay[i]) { final_aabbs.push_back(aabbs[i]); }
-    // }
-
-    // std::cout << "Removed " << aabbs.size() - final_aabbs.size() << " aabbs that were inside others." << '\n';
-
-    // return final_aabbs;
-}
-
-[[nodiscard]] vec3 Surface::interpolate_edge(const PointImplicit& A, const PointImplicit& B) {
-    float diff = B.implicit - A.implicit;
-    if(std::abs(diff) < 1e-6) { return A.point; }
-    return A.point + ((-A.implicit) / diff) * (B.point - A.point);
 }

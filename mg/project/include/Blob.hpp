@@ -5,8 +5,7 @@
 
 #pragma once
 
-#include <vector>
-#include "maths/geometry.hpp"
+#include "maths/functions.hpp"
 #include "maths/vec3.hpp"
 #include "AABB.hpp"
 
@@ -18,30 +17,23 @@ float attenuation_wyvill(float distance_sqr, int n);
 float aabb_radius(float radius);
 
 struct Blob {
-    Blob() : negative(false) {}
+    Blob();
 
     virtual ~Blob() = default;
 
-    virtual void traverse(std::size_t& count, std::vector<AABB>& aabbs) = 0;
+    virtual AABB get_aabb_and_blob_count(std::size_t& count) = 0;
 
     [[nodiscard]] virtual float potential(const vec3& point) const = 0;
-
-    [[nodiscard]] virtual AABB compute_AABB() const = 0;
 
     bool negative;
 };
 
 struct SphereBlob : Blob {
-    SphereBlob(const vec3& center, float radius) : center(center), radius(radius), radius_sqr(radius * radius) {}
+    SphereBlob(const vec3& center, float radius);
 
-    virtual void traverse(std::size_t& count, std::vector<AABB>& aabbs) override {
-        count++;
-        aabbs.push_back(compute_AABB());
-    }
+    AABB get_aabb_and_blob_count(std::size_t& count) override;
 
     [[nodiscard]] float potential(const vec3& point) const override;
-
-    [[nodiscard]] AABB compute_AABB() const override;
 
     vec3 center;
 
@@ -51,16 +43,11 @@ private:
 };
 
 struct CapsuleBlob : Blob {
-    CapsuleBlob(const vec3& A, const vec3& B, float radius) : A(A), B(B), radius(radius), radius_sqr(radius * radius) {}
+    CapsuleBlob(const vec3& A, const vec3& B, float radius);
 
-    virtual void traverse(std::size_t& count, std::vector<AABB>& aabbs) override {
-        count++;
-        aabbs.push_back(compute_AABB());
-    }
+    AABB get_aabb_and_blob_count(std::size_t& count) override;
 
     [[nodiscard]] float potential(const vec3& point) const override;
-
-    [[nodiscard]] AABB compute_AABB() const override;
 
     vec3 A;
     vec3 B;
@@ -69,3 +56,38 @@ private:
     float radius;
     float radius_sqr;
 };
+
+template <auto PotentialFunc, auto AABBFunc>
+struct OperationBlob : Blob {
+
+    OperationBlob() : left(nullptr), right(nullptr) {}
+
+    OperationBlob(Blob* left, Blob* right) : left(left), right(right) {}
+
+    AABB get_aabb_and_blob_count(std::size_t& count) override {
+        ++count;
+
+        return AABBFunc(left->get_aabb_and_blob_count(count), right->get_aabb_and_blob_count(count));
+    }
+
+    [[nodiscard]] float potential(const vec3& point) const override {
+        return PotentialFunc(left->potential(point), right->potential(point));
+    }
+
+    Blob* left;
+    Blob* right;
+};
+
+constexpr AABB aabb_union(const AABB& left, const AABB& right) {
+    return AABB(min(left.min, right.min), max(left.max, right.max));
+}
+
+constexpr AABB aabb_intersect(const AABB& left, const AABB& right) {
+    return AABB(max(left.min, right.min), min(left.max, right.max));
+}
+
+using SumBlob = OperationBlob<[](float a, float b) -> float { return a + b; }, aabb_union>;
+using UnionBlob = OperationBlob<[](float a, float b) -> float { return std::max(a, b); }, aabb_union>;
+using IntersectionBlob = OperationBlob<[](float a, float b) -> float { return std::min(a, b); }, aabb_intersect>;
+using DifferenceBlob = OperationBlob<[](float a, float b) -> float { return std::min(a, 2.0f * THRESHOLD - b); },
+                                     [](const AABB& left, const AABB&) -> AABB { return left; }>;
