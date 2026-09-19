@@ -182,15 +182,25 @@ Booleen get_bit(struct bitstream* b) {
         EXIT;
     }
 
-    int c = fgetc(b->fichier);
-    if(c == EOF) {
-        EXCEPTION_LANCE(Exception_fichier_lecture);
-        EXIT;
+    if(b->nb_bits_dans_buffer == 0) {
+        int c = fgetc(b->fichier);
+
+        if(c == EOF) {
+            EXCEPTION_LANCE(Exception_fichier_lecture);
+            EXIT;
+        }
+
+        // Shifts in case the type of the buffer is changed to a type bigger than unsigned char
+        b->buffer = c << (NB_BITS - 8 * sizeof(unsigned char));
+        b->nb_bits_dans_buffer = 8;
     }
 
-    // TODO
+    Booleen bit = prend_bit(b->buffer, NB_BITS - 1);
 
-    return 0; /* pour enlever un warning du compilateur */
+    b->buffer <<= 1;
+    b->nb_bits_dans_buffer--;
+
+    return bit;
 }
 
 /*
