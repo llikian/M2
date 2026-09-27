@@ -1,5 +1,5 @@
-#include "bits.h"
 #include "entier.h"
+#include "bits.h"
 
 /*
  * Les fonctions de ce fichier permette d'encoder et de décoder
@@ -12,7 +12,7 @@
  *
  * Le nombre est codé par la concaténation du PREFIXE et SUFFIXE
  * Le suffixe est en fait le nombre entier sauf le premier bit a 1
- * 
+ *
  * Nombre de bits |    PRÉFIXE     | nombres codés | SUFFIXE
  *       0        |       00       |      0        |
  *     	 1        |       010      |  1 (pas 0)    |
@@ -35,24 +35,60 @@
  *
  */
 
-static char *prefixes[] = { "00", "010", "011", "1000", "1001", "1010", "1011",
-			    "11000", "11001", "11010", "11011", "11100",
-			    "11101", "11110", "111110", "111111" } ;
+static char* prefixes[] = { "00",    "010",   "011",   "1000",  "1001",  "1010",  "1011",   "11000",
+                            "11001", "11010", "11011", "11100", "11101", "11110", "111110", "111111" };
 
-void put_entier(struct bitstream *b, unsigned int f)
-{
+void put_entier(struct bitstream* b, unsigned int f) {
+    int bits_utiles = nb_bits_utile(f);
+    if(bits_utiles > 15) { EXIT; }
 
-
-
-
-
-
-
-
-
-
-
+    put_bit_string(b, prefixes[bits_utiles]);
+    if(bits_utiles > 0) { put_bits(b, bits_utiles - 1, f); }
 }
+
+struct Node {
+    int value; // Only useful in leaves, index of the prefix if a leaf, -1 otherwise
+    struct Node* children[2];
+};
+
+static struct Node* create_node() {
+    struct Node* node;
+
+    ALLOUER(node, 1);
+
+    node->value = -1;
+    node->children[0] = NULL;
+    node->children[1] = NULL;
+
+    return node;
+}
+
+static Booleen is_leaf(struct Node* node) {
+    return node->children[0] == NULL && node->children[1] == NULL;
+}
+
+static void encode_prefix(struct Node* root, const char* prefix, int index) {
+    struct Node* node = root;
+
+    for(int i = 0; prefix[i] != '\0'; ++i) {
+        int child_index = prefix[i] - '0';
+        if(node->children[child_index] == NULL) { node->children[child_index] = create_node(); }
+        node = node->children[child_index];
+    }
+
+    node->value = index;
+}
+
+static struct Node* create_prefix_tree() {
+    struct Node* root = create_node();
+
+    const int prefix_count = sizeof(prefixes) / sizeof(char*);
+    for(int i = 0; i < prefix_count; ++i) { encode_prefix(root, prefixes[i], i); }
+
+    return root;
+}
+
+static struct Node* prefix_tree = NULL;
 
 /*
  * Cette fonction fait l'inverse de la précédente.
@@ -63,40 +99,17 @@ void put_entier(struct bitstream *b, unsigned int f)
  * Mais je ne vous le demande pas
  */
 
-unsigned int get_entier(struct bitstream *b)
-{
+unsigned int get_entier(struct bitstream* b) {
+    if(prefix_tree == NULL) { prefix_tree = create_prefix_tree(); }
 
+    struct Node* node = prefix_tree;
+    while(!is_leaf(node)) { node = node->children[get_bit(b)]; }
 
+    int nb_bits = node->value;
+    if(nb_bits == 0) { return 0; }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-return 0 ; /* pour enlever un warning du compilateur */
+    return pose_bit(get_bits(b, nb_bits - 1), nb_bits - 1, 1);
+    // return (1 << (nb_bits - 1)) | get_bits(b, nb_bits - 1);
 }
 
 /*
@@ -114,27 +127,23 @@ return 0 ; /* pour enlever un warning du compilateur */
  *
  */
 
-void put_entier_signe(struct bitstream *b, int i)
-{
-
-
-
-
-
-
-
-
-
-
+void put_entier_signe(struct bitstream* b, int i) {
+    if(i >= 0) {
+        put_bit(b, 0);
+        put_entier(b, i);
+    } else {
+        put_bit(b, 1);
+        put_entier(b, -(i + 1));
+    }
 }
+
 /*
  *
  */
-int get_entier_signe(struct bitstream *b)
-{
-
-
-
-
-return 0 ; /* pour enlever un warning du compilateur */
+int get_entier_signe(struct bitstream* b) {
+    if(get_bit(b)) {
+        return -(get_entier(b) + 1);
+    } else {
+        return get_entier(b);
+    }
 }

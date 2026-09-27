@@ -75,7 +75,7 @@ Window::Window() : window(nullptr) {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    window = glfwCreateWindow(1920, 1080, "OpenGL-Engine", nullptr, nullptr);
+    window = glfwCreateWindow(1920, 1080, "GAM", nullptr, nullptr);
     if(window == nullptr) { throw std::runtime_error("Failed to create window."); }
 
     glfwMakeContextCurrent(window);

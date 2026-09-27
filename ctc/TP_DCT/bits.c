@@ -1,5 +1,5 @@
-#include "bitstream.h"
 #include "bits.h"
+#include "bitstream.h"
 
 /*
  * Oon écrit les "nb" bits de droite de "v"
@@ -8,14 +8,9 @@
  * Pour v=11 nb=8 on va écrire les bits : 00001011 dans le fichier
  */
 
-void put_bits(struct bitstream *b, unsigned int nb, unsigned long v)
-{
-
-
-
-
+void put_bits(struct bitstream* b, unsigned int nb, unsigned long v) {
+    for(int i = 0; i < nb; ++i) { put_bit(b, prend_bit(v, nb - i - 1)); }
 }
-
 
 /*
  * Lecture de "nb" bits venant du fichier.
@@ -25,15 +20,15 @@ void put_bits(struct bitstream *b, unsigned int nb, unsigned long v)
  * 00->0 01->1 10->2 11->3
  */
 
-unsigned int get_bits(struct bitstream *b, unsigned int nb)
-{
+unsigned int get_bits(struct bitstream* b, unsigned int nb) {
+    unsigned int v = 0;
 
+    for(int i = 0; i < nb; ++i) {
+        v <<= 1;
+        v = pose_bit(v, 0, get_bit(b));
+    }
 
-
-
-
-
-return 0 ; /* pour enlever un warning du compilateur */
+    return v;
 }
 
 /*
@@ -44,8 +39,6 @@ return 0 ; /* pour enlever un warning du compilateur */
  * Comme d'habitude le caractère '0' c'est Faux les autres sont vrai
  */
 
-void put_bit_string(struct bitstream *b, const char *bits)
-{
-
-
+void put_bit_string(struct bitstream* b, const char* bits) {
+    for(int i = 0; bits[i] != '\0'; ++i) { put_bit(b, bits[i] != '0'); }
 }

@@ -16,6 +16,9 @@ uniform vec3 u_camera_front;
 
 void main() {
     vec3 light_direction = normalize(-u_camera_front);
-    vec3 color = u_color.rgb * max(0.2f, dot(normalize(v_normal), light_direction));
+    float cos_theta = max(0.0f, dot(normalize(v_normal), light_direction));
+    float ambient = (cos_theta * (1.0f - 0.3f) + 0.3f);
+
+    vec3 color = u_color.rgb * ambient;
     frag_color = vec4(color, u_color.a);
 }

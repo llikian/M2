@@ -275,24 +275,45 @@ void Mesh::load_from_off(const std::filesystem::path& path) {
     if(!check()) { throw std::runtime_error("Mesh check failed"); }
 }
 
+/**
+ *         a
+ *        /|\
+ * gamma / | \ beta
+ *      /  p  \
+ *     / /   \ \
+ *    b---------c
+ *       alpha
+ */
 void Mesh::triangle_split(unsigned int face, const vec3& point) {
-    vertices.emplace_back(point.x, point.y, point.x, face);
+    vertices.emplace_back(point.x, point.y, point.z, face);
     unsigned int p = vertices.size() - 1;
-    Triangle old_tri = triangles[face];
-    Face old_face = faces[face];
-    unsigned int face1 = faces.size();
-    unsigned int face2 = faces.size() + 1;
 
-    triangles[face] = Triangle(old_tri.a, old_tri.b, p);
-    faces[face] = Face(face1, face2, old_face.gamma);
-    triangles.emplace_back(old_tri.b, old_tri.c, p);
-    faces.emplace_back(face2, face, old_face.alpha);
-    triangles.emplace_back(old_tri.c, old_tri.a, p);
-    faces.emplace_back(face, face1, old_face.beta);
+    unsigned int a = triangles[face].a;
+    unsigned int b = triangles[face].b;
+    unsigned int c = triangles[face].c;
+
+    unsigned int alpha = faces[face].alpha;
+    unsigned int beta = faces[face].beta;
+    unsigned int gamma = faces[face].gamma;
+
+    triangles.emplace_back(0, 0, 0);
+    unsigned int face1 = triangles.size() - 1;
+    triangles.emplace_back(0, 0, 0);
+    unsigned int face2 = triangles.size() - 1;
+    faces.emplace_back(0, 0, 0);
+    faces.emplace_back(0, 0, 0);
+
+    triangles[face] = Triangle(a, b, p);
+    triangles[face1] = Triangle(b, c, p);
+    triangles[face2] = Triangle(c, a, p);
+
+    faces[face] = Face(face1, face2, gamma);
+    faces[face1] = Face(face2, face, alpha);
+    faces[face2] = Face(face, face1, beta);
 
     for(int i = 0; i < 3; ++i) {
-        if(triangles[old_face.alpha][i] == face) { triangles[old_face.alpha][i] = face1; }
-        if(triangles[old_face.beta][i] == face) { triangles[old_face.beta][i] = face2; }
+        if(faces[alpha][i] == face) { faces[alpha][i] = face1; }
+        if(faces[beta][i] == face) { faces[beta][i] = face2; }
     }
 }
 
@@ -311,7 +332,7 @@ void Mesh::triangle_split(unsigned int face, const vec3& point) {
  * c = vertex
  */
 void Mesh::edge_split(unsigned int face, unsigned int vertex, const vec3& point) {
-    vertices.emplace_back(point.x, point.y, point.x, face);
+    vertices.emplace_back(point.x, point.y, point.z, face);
     unsigned int p = vertices.size() - 1;
 
     unsigned int local_index_of_c = get_local_index(vertex, face);

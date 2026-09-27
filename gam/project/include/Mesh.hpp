@@ -63,7 +63,7 @@ public:
 
     void draw_imgui_table() const;
 
-private:
+    // private:
     std::vector<Vertex> vertices;
     std::vector<Triangle> triangles;
     std::vector<Face> faces;

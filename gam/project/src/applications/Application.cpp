@@ -79,7 +79,7 @@ void Application::run() {
 
         shader.use();
         shader.set_uniform("u_mvp", camera.get_view_projection_matrix() * scale(10.0f));
-        shader.set_uniform("u_color", vec4(1.0f));
+        shader.set_uniform("u_color", vec4(1.0f, 0.0f, 0.0f, 1.0f));
         shader.set_uniform("u_camera_front", camera.get_direction());
 
         mesh.draw();
@@ -88,7 +88,23 @@ void Application::run() {
 
         mesh.draw_imgui_table();
 
-        if(ImGui::Button("Split Face")) { mesh.edge_split(0, 0, (top + A) / 2.0f); }
+        if(ImGui::Button("Split Triangle")) {
+            const Mesh::Triangle& triangle = mesh.triangles[0];
+            mesh.triangle_split(0,
+                                (mesh.vertices[triangle[0]].position + mesh.vertices[triangle[1]].position +
+                                 mesh.vertices[triangle[2]].position) /
+                                    3.0f);
+            mesh.compute_normals();
+            mesh.bind_buffers();
+        }
+        if(ImGui::Button("Split Edge")) {
+            const Mesh::Triangle& triangle = mesh.triangles[0];
+            mesh.edge_split(0,
+                            triangle[2],
+                            (mesh.vertices[triangle[0]].position + mesh.vertices[triangle[1]].position) / 2.0f);
+            mesh.compute_normals();
+            mesh.bind_buffers();
+        }
 
         ImGui::End();
 

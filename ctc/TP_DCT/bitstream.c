@@ -71,8 +71,8 @@ struct bitstream* open_bitstream(const char* fichier, const char* mode) {
     }
 
     if(stream->fichier == NULL) {
+        free(stream);
         EXCEPTION_LANCE(Exception_fichier_ouverture);
-        EXIT;
     }
 
     return stream;
@@ -96,9 +96,9 @@ struct bitstream* open_bitstream(const char* fichier, const char* mode) {
 void flush_bitstream(struct bitstream* b) {
     if(!b->ecriture || b->nb_bits_dans_buffer == 0) { return; }
 
-    if(fprintf(b->fichier, "%c", b->buffer) < 0) {
+    if(fputc(b->buffer, b->fichier) < 0) {
+        free(b);
         EXCEPTION_LANCE(Exception_fichier_ecriture);
-        EXIT;
     }
 
     b->buffer = 0;
@@ -118,8 +118,8 @@ void close_bitstream(struct bitstream* b) {
     if(b->ecriture) { flush_bitstream(b); }
 
     if(fclose(b->fichier) != 0) {
+        free(b);
         EXCEPTION_LANCE(Exception_fichier_fermeture);
-        EXIT;
     }
 
     free(b);
@@ -144,8 +144,8 @@ void close_bitstream(struct bitstream* b) {
 
 void put_bit(struct bitstream* b, Booleen bit) {
     if(!b->ecriture) {
+        free(b);
         EXCEPTION_LANCE(Exception_fichier_ecriture_dans_fichier_ouvert_en_lecture);
-        EXIT;
     }
 
     if(b->nb_bits_dans_buffer == NB_BITS) { flush_bitstream(b); }
@@ -178,16 +178,16 @@ void put_bit(struct bitstream* b, Booleen bit) {
 
 Booleen get_bit(struct bitstream* b) {
     if(b->ecriture) {
+        free(b);
         EXCEPTION_LANCE(Exception_fichier_lecture_dans_fichier_ouvert_en_ecriture);
-        EXIT;
     }
 
     if(b->nb_bits_dans_buffer == 0) {
         int c = fgetc(b->fichier);
 
         if(c == EOF) {
+            free(b);
             EXCEPTION_LANCE(Exception_fichier_lecture);
-            EXIT;
         }
 
         // Shifts in case the type of the buffer is changed to a type bigger than unsigned char
