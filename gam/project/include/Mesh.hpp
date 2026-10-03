@@ -7,9 +7,16 @@
 
 #include <filesystem>
 #include <vector>
+#include "maths/vec2.hpp"
 #include "maths/vec3.hpp"
 
+#define EPSILON 1e-4
+
 bool is_whitespace(const std::string& line);
+
+int orientation_3P(const vec2& a, const vec2& b, const vec2& c);
+
+int is_in_triangle(const vec2& a, const vec2& b, const vec2& c, const vec2& p);
 
 class Mesh {
 public:
@@ -47,6 +54,8 @@ public:
 
     void make_bounding_box_2D(float min_x, float min_y, float max_x, float max_y);
 
+    void make_rect(float min_x, float min_y, float max_x, float max_y);
+
     void bind_buffers();
     void draw();
     void compute_normals();
@@ -56,6 +65,7 @@ public:
 
     void triangle_split(unsigned int face, const vec3& point);
     void edge_split(unsigned int face, unsigned int vertex, const vec3& point);
+    void edge_flip(unsigned int face0, unsigned int face1);
 
     bool check() const;
 
@@ -72,3 +82,6 @@ public:
     unsigned int VBO;
     unsigned int EBO;
 };
+
+std::ostream& operator<<(std::ostream& stream, const Mesh::Triangle& tri);
+std::ostream& operator<<(std::ostream& stream, const Mesh::Face& face);

@@ -6,67 +6,55 @@
  * la valeur (et non le code) d'un événement à ajouter à la table.
  */
 
-
-#include "bits.h"
 #include "sf.h"
+#include "bits.h"
 
 #define VALEUR_ESCAPE 0x7fffffff /* Plus grand entier positif */
 
-struct evenement
- {
-  int valeur ;
-  int nb_occurrences ;
- } ;
+struct evenement {
+    int valeur;
+    int nb_occurrences;
+};
 
-struct shannon_fano
- {
-  int nb_evenements ;
-  struct evenement evenements[200000] ;
- } ;
+struct shannon_fano {
+    int nb_evenements;
+    struct evenement evenements[200000];
+};
 
 /*
  * Allocation des la structure et remplissage des champs pour initialiser
  * le tableau des événements avec l'événement ESCAPE (avec une occurrence).
  */
-struct shannon_fano* open_shannon_fano()
-{
+struct shannon_fano* open_shannon_fano() {
+    struct shannon_fano* sf = NULL;
+    ALLOUER(sf, 1);
 
+    sf->nb_evenements = 1;
+    sf->evenements[0].valeur = VALEUR_ESCAPE;
+    sf->evenements[0].nb_occurrences = 1;
 
-
-
-
-
-
-
-
-return 0 ; /* pour enlever un warning du compilateur */
+    return sf;
 }
 
 /*
  * Fermeture (libération mémoire)
  */
-void close_shannon_fano(struct shannon_fano *sf)
-{
-
+void close_shannon_fano(struct shannon_fano* sf) {
+    free(sf);
 }
 
 /*
  * En entrée l'événement (sa valeur, pas son code shannon-fano).
  * En sortie la position de l'événement dans le tableau "evenements"
- * Si l'événement n'est pas trouvé, on retourne la position
- * de l'événement ESCAPE.
+ * Si l'événement n'est pas trouvé, on retourne la position de l'événement ESCAPE.
  */
 
-static int trouve_position(const struct shannon_fano *sf, int evenement)
-{
+static int trouve_position(const struct shannon_fano* sf, int evenement) {
+    for(int i = 0; i < sf->nb_evenements; ++i) {
+        if(sf->evenements[i].valeur == evenement) { return i; }
+    }
 
-
-
-
-
-
-
-return 0 ; /* pour enlever un warning du compilateur */
+    return 0; // TODO: test this, may be sf->nb_evenements - 1
 }
 
 /*
@@ -84,22 +72,27 @@ return 0 ; /* pour enlever un warning du compilateur */
  *
  * L'algorithme (trivial) n'est pas facile à trouver, réfléchissez bien.
  */
-static int trouve_separation(const struct shannon_fano *sf
-			     , int position_min
-			     , int position_max)
-{
+static int trouve_separation(const struct shannon_fano* sf, int position_min, int position_max) {
+    int total = 0;
+    for(int i = position_min; i <= position_max; ++i) { total += abs(sf->evenements[i].valeur); }
 
+    int sum_left = abs(sf->evenements[position_min].valeur);
+    int best = position_min;
+    int best_diff = total;
 
+    for(int i = position_min; i < position_max; ++i) {
+        sum_left += abs(sf->evenements[i].valeur);
+        int diff = abs(total - 2 * sum_left); // (total - sum_left) - sum_left
 
+        if(diff < best_diff) {
+            best = i;
+            best_diff = diff;
+        } else {
+            break;
+        }
+    }
 
-
-
-
-
-
-
-
-return 0 ; /* pour enlever un warning du compilateur */
+    return best;
 }
 
 /*
@@ -108,29 +101,7 @@ return 0 ; /* pour enlever un warning du compilateur */
  * le code de l'événement "sf->evenements[position]".
  */
 
-static void encode_position(struct bitstream *bs,struct shannon_fano *sf,
-		     int position)
-{
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}
+static void encode_position(struct bitstream* bs, struct shannon_fano* sf, int position) {}
 
 /*
  * Cette fonction incrémente le nombre d'occurrence de
@@ -141,26 +112,7 @@ static void encode_position(struct bitstream *bs,struct shannon_fano *sf,
  * Les faibles indices correspondent aux grand nombres d'occurrences
  */
 
-static void incremente_et_ordonne(struct shannon_fano *sf, int position)
-{
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-}
+static void incremente_et_ordonne(struct shannon_fano* sf, int position) {}
 
 /*
  * Cette fonction trouve la position de l'événement puis l'encode.
@@ -168,48 +120,14 @@ static void incremente_et_ordonne(struct shannon_fano *sf, int position)
  * de "evenement" pour envoyer le code du nouvel l'événement.
  * Elle termine en appelant "incremente_et_ordonne" pour l'événement envoyé.
  */
-void put_entier_shannon_fano(struct bitstream *bs
-			     ,struct shannon_fano *sf, int evenement)
-{
-
-
-
-
-
-
-
-
-
-
-
-
-
-}
+void put_entier_shannon_fano(struct bitstream* bs, struct shannon_fano* sf, int evenement) {}
 
 /*
  * Fonction inverse de "encode_position"
  */
-static int decode_position(struct bitstream *bs,struct shannon_fano *sf)
-{
+static int decode_position(struct bitstream* bs, struct shannon_fano* sf) {
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-return 0 ; /* pour enlever un warning du compilateur */
+    return 0; /* pour enlever un warning du compilateur */
 }
 
 /*
@@ -218,60 +136,37 @@ return 0 ; /* pour enlever un warning du compilateur */
  * Attention au piège : "incremente_et_ordonne" change le tableau
  * donc l'événement trouvé peut changer de position.
  */
-int get_entier_shannon_fano(struct bitstream *bs, struct shannon_fano *sf)
-{
+int get_entier_shannon_fano(struct bitstream* bs, struct shannon_fano* sf) {
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-return 0 ; /* pour enlever un warning du compilateur */
+    return 0; /* pour enlever un warning du compilateur */
 }
 
 /*
  * Fonctions pour les tests, NE PAS MODIFIER, NE PAS UTILISER.
  */
-int sf_get_nb_evenements(struct shannon_fano *sf)
- {
-   return sf->nb_evenements ;
- }
-void sf_get_evenement(struct shannon_fano *sf, int i, int *valeur, int *nb_occ)
- {
-   *valeur = sf->evenements[i].valeur ;
-   *nb_occ = sf->evenements[i].nb_occurrences ;
- }
-int sf_table_ok(const struct shannon_fano *sf)
- {
-  int i, escape ;
+int sf_get_nb_evenements(struct shannon_fano* sf) {
+    return sf->nb_evenements;
+}
 
-  escape = 0 ;
-  for(i=0;i<sf->nb_evenements;i++)
-    {
-    if ( i != 0
-        && sf->evenements[i-1].nb_occurrences<sf->evenements[i].nb_occurrences)
-	{
-	   fprintf(stderr, "La table des événements n'est pas triée\n") ;
-	   return(0) ;
-	}
-    if ( sf->evenements[i].valeur == VALEUR_ESCAPE )
-	escape = 1 ;
+void sf_get_evenement(struct shannon_fano* sf, int i, int* valeur, int* nb_occ) {
+    *valeur = sf->evenements[i].valeur;
+    *nb_occ = sf->evenements[i].nb_occurrences;
+}
+
+int sf_table_ok(const struct shannon_fano* sf) {
+    int i, escape;
+
+    escape = 0;
+    for(i = 0; i < sf->nb_evenements; i++) {
+        if(i != 0 && sf->evenements[i - 1].nb_occurrences < sf->evenements[i].nb_occurrences) {
+            fprintf(stderr, "La table des événements n'est pas triée\n");
+            return (0);
+        }
+        if(sf->evenements[i].valeur == VALEUR_ESCAPE) { escape = 1; }
     }
- if ( escape == 0 )
-	{
-	   fprintf(stderr, "Pas de ESCAPE dans la table !\n") ;
-	   return(0) ;
-	}
- return 1 ;
- }
+    if(escape == 0) {
+        fprintf(stderr, "Pas de ESCAPE dans la table !\n");
+        return (0);
+    }
+    return 1;
+}

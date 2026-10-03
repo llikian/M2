@@ -144,7 +144,8 @@ void close_bitstream(struct bitstream* b) {
 
 void put_bit(struct bitstream* b, Booleen bit) {
     if(!b->ecriture) {
-        free(b);
+        // fclose(b->fichier);
+        // free(b);
         EXCEPTION_LANCE(Exception_fichier_ecriture_dans_fichier_ouvert_en_lecture);
     }
 
@@ -178,7 +179,8 @@ void put_bit(struct bitstream* b, Booleen bit) {
 
 Booleen get_bit(struct bitstream* b) {
     if(b->ecriture) {
-        free(b);
+        // fclose(b->fichier);
+        // free(b);
         EXCEPTION_LANCE(Exception_fichier_lecture_dans_fichier_ouvert_en_ecriture);
     }
 
@@ -186,7 +188,8 @@ Booleen get_bit(struct bitstream* b) {
         int c = fgetc(b->fichier);
 
         if(c == EOF) {
-            free(b);
+            // fclose(b->fichier);
+            // free(b);
             EXCEPTION_LANCE(Exception_fichier_lecture);
         }
 

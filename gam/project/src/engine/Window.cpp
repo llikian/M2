@@ -97,7 +97,7 @@ Window::Window() : window(nullptr) {
 
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LEQUAL);
-    glClearColor(0.1, 0.1f, 0.1f, 1.0f);
+    glClearColor(0.3, 0.3f, 0.3f, 1.0f);
     glClearDepth(1.0f);
 
     glEnable(GL_BLEND);

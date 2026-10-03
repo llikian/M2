@@ -1,6 +1,6 @@
 
 OBJS=bit.o bitstream.o bits.o entier.o sf.o matrice.o dct.o psycho.o rle.o image.o jpg.o ondelette.o
-UTILITAIRES=eprintf.o intstream.o filtres.o
+UTILITAIRES=eprintf.o intstream.o filtres.o prefix_tree.o
 CFLAGS=-Wall -g -O3
 
 

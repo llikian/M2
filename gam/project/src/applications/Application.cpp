@@ -53,12 +53,8 @@ void Application::run() {
     // mesh.load_from_off("data/queen.off");
     // mesh.load_from_off("data/r2.off");
 
-    float radius = 2.0f;
-    vec3 top(0.0f, radius, 0.0f);
-    vec3 A = radius * vec3(std::cos(0.0f), 0.0f, std::sin(0.0f));
-    vec3 B = radius * vec3(std::cos(4.0f * PI_F / 3.0f), 0.0f, std::sin(4.0f * PI_F / 3.0f));
-    vec3 C = radius * vec3(std::cos(2.0f * PI_F / 3.0f), 0.0f, std::sin(2.0f * PI_F / 3.0f));
-    mesh.make_tetrahedron(top, A, B, C);
+    float radius = 1.0f;
+    mesh.make_rect(-radius, -radius, radius, radius);
 
     mesh.compute_normals();
     mesh.bind_buffers();
@@ -102,6 +98,13 @@ void Application::run() {
             mesh.edge_split(0,
                             triangle[2],
                             (mesh.vertices[triangle[0]].position + mesh.vertices[triangle[1]].position) / 2.0f);
+            mesh.compute_normals();
+            mesh.bind_buffers();
+        }
+
+        if(ImGui::Button("Edge Flip")) {
+            // mesh.edge_flip(0, mesh.faces[0].alpha);
+            mesh.edge_flip(0, 1);
             mesh.compute_normals();
             mesh.bind_buffers();
         }
