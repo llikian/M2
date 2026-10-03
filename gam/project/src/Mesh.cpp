@@ -97,39 +97,18 @@ void Mesh::make_square_pyramid(vec3 top, vec3 A, vec3 B, vec3 C, vec3 D) {
 }
 
 void Mesh::make_bounding_box_2D(float min_x, float min_y, float max_x, float max_y) {
-    vertices.emplace_back(min_x, max_y, 0.0f, 0); // 0 - top left
-    vertices.emplace_back(min_x, min_y, 0.0f, 0); // 1 - bottom left
-    vertices.emplace_back(max_x, min_y, 0.0f, 0); // 2 - bottom right
-    vertices.emplace_back(max_x, max_y, 0.0f, 1); // 3 - top right
-    vertices.emplace_back(0.5f * (min_x + max_x),
-                          0.5f * (min_y + max_y),
-                          std::numeric_limits<float>::infinity(),
-                          2); // 4 - artificial infinite vertex
+    vertices.emplace_back(min_x, max_y, 0.0f, 0);                                    // 0 - top left
+    vertices.emplace_back(min_x, min_y, 0.0f, 0);                                    // 1 - bottom left
+    vertices.emplace_back(max_x, min_y, 0.0f, 0);                                    // 2 - bottom right
+    vertices.emplace_back(max_x, max_y, 0.0f, 1);                                    // 3 - top right
+    vertices.emplace_back(0.5f * (min_x + max_x), 0.5f * (min_y + max_y), -1e30, 2); // 4 - artificial vertex
 
-    triangles.emplace_back(0, 1, 2); // 0 - triangle
-    faces.emplace_back(4, 1, 5);
-    triangles.emplace_back(0, 2, 3); // 1 - triangle
-    faces.emplace_back(3, 2, 0);
-    triangles.emplace_back(4, 0, 3); // 2 - artificial triangle
-    faces.emplace_back(1, 3, 5);
-    triangles.emplace_back(4, 3, 2); // 3 - artificial triangle
-    faces.emplace_back(1, 4, 2);
-    triangles.emplace_back(4, 1, 2); // 4 - artificial triangle
-    faces.emplace_back(0, 3, 5);
-    triangles.emplace_back(4, 1, 0); // 5 - artificial triangle
-    faces.emplace_back(0, 2, 4);
-}
-
-void Mesh::make_rect(float min_x, float min_y, float max_x, float max_y) {
-    vertices.emplace_back(min_x, max_y, 0.0f, 0); // 0 - top left
-    vertices.emplace_back(min_x, min_y, 0.0f, 0); // 1 - bottom left
-    vertices.emplace_back(max_x, min_y, 0.0f, 0); // 2 - bottom right
-    vertices.emplace_back(max_x, max_y, 0.0f, 1); // 3 - top right
-
-    triangles.emplace_back(0, 1, 2);
-    faces.emplace_back(-1, -1, -1);
-    triangles.emplace_back(0, 2, 3);
-    faces.emplace_back(-1, -1, -1);
+    emplace_tri_and_face(0, 1, 2, 4, 1, 5); // 0 - triangle
+    emplace_tri_and_face(0, 2, 3, 3, 2, 0); // 1 - triangle
+    emplace_tri_and_face(4, 0, 3, 1, 3, 5); // 2 - artificial triangle
+    emplace_tri_and_face(4, 3, 2, 1, 4, 2); // 3 - artificial triangle
+    emplace_tri_and_face(4, 2, 1, 0, 5, 3); // 4 - artificial triangle
+    emplace_tri_and_face(4, 1, 0, 0, 2, 4); // 5 - artificial triangle
 }
 
 void Mesh::bind_buffers() {
@@ -415,12 +394,6 @@ void Mesh::edge_split(unsigned int face, unsigned int vertex, const vec3& point)
     faces[fCB][(local_index_of_b_in_fCB + 1) % 3] = f3;
 }
 
-#define PRINT_V(V)             #V << " = " << V
-#define PRINT_VS(V)            #V << " = " << V << " ; "
-#define PRINT_VAR(V)           std::cout << PRINT_V(V) << '\n';
-#define PRINT_2VAR(A, B)       std::cout << PRINT_VS(A) << PRINT_VS(B) << '\n';
-#define PRINT_4VAR(A, B, C, D) std::cout << PRINT_VS(A) << PRINT_VS(B) << PRINT_VS(C) << PRINT_VS(D) << '\n';
-
 /**
  *       a               a
  *      ╱ ╲             ╱│╲
@@ -466,14 +439,6 @@ void Mesh::edge_flip(unsigned int face0, unsigned int face1) {
     unsigned int fDC = faces[face1][(local_index_of_d + 2) % 3]; // opposite b in f1
     unsigned int fCA = faces[face0][(local_index_of_a + 1) % 3]; // opposite b in f0
 
-    std::cout << triangles[face0] << " ; " << triangles[face1] << '\n';
-    std::cout << faces[face0] << " ; " << faces[face1] << '\n';
-    PRINT_2VAR(face0, face1)
-    PRINT_4VAR(a, b, c, d)
-    PRINT_2VAR(local_index_of_a, local_index_of_d)
-    PRINT_4VAR(fAB, fBD, fDC, fCA)
-    std::cout << '\n';
-
     triangles[face0] = Triangle(a, b, d);
     triangles[face1] = Triangle(a, d, c);
 
@@ -486,16 +451,21 @@ void Mesh::edge_flip(unsigned int face0, unsigned int face1) {
     vertices[b].face = face0;
     vertices[c].face = face1;
     vertices[d].face = face0;
+
+    check();
 }
 
 bool Mesh::check() const {
     for(unsigned int i = 0; i < vertices.size(); ++i) {
         const Triangle& tri = triangles[vertices[i].face];
         if(tri.a != i && tri.b != i && tri.c != i) {
-            std::cerr << "A vertex had the id of a face it wasn't a part of.\n";
+            std::cerr << "Vertex " << i << " is not in triangle " << vertices[i].face << ":\n" //
+                      << "  The triangle has the following vertices: " << tri << ".\n";
             return false;
         }
     }
+
+    bool correct = true;
 
     for(unsigned int i = 0; i < faces.size(); ++i) {
         const Triangle& tri = triangles[i];
@@ -507,32 +477,38 @@ bool Mesh::check() const {
         if(!(tri_a.a == tri.c && tri_a.b == tri.b) && //
            !(tri_a.b == tri.c && tri_a.c == tri.b) && //
            !(tri_a.c == tri.c && tri_a.a == tri.b)) {
-            std::cerr << "A triangle doesn't have the proper opposite face for a vertex:\n";
-            std::cerr << "tri   (" << i << "): " << tri << ", " << face << "\n";
-            std::cerr << "tri_a (" << face.alpha << "): " << tri_a << ", " << faces[face.alpha] << '\n';
-            return false;
+            std::cerr << "\nA triangle doesn't have the proper opposite face for a vertex:\n"               //
+                      << "  The triangle opposite the vertex " << tri.a << " in triangle " << i             //
+                      << " is set to triangle " << face.alpha << ".\n"                                      //
+                      << "  It should contain vertices (" << tri.c << " ; " << tri.b << ") in that order\n" //
+                      << "  Instead, that triangle has the following vertices: " << tri_a << '\n';
+            correct = false;
         }
 
         if(!(tri_b.a == tri.a && tri_b.b == tri.c) && //
            !(tri_b.b == tri.a && tri_b.c == tri.c) && //
            !(tri_b.c == tri.a && tri_b.a == tri.c)) {
-            std::cerr << "A triangle doesn't have the proper opposite face for a vertex:\n";
-            std::cerr << "tri   (" << i << "): " << tri << ", " << face << "\n";
-            std::cerr << "tri_b (" << face.beta << "): " << tri_b << ", " << faces[face.beta] << '\n';
-            return false;
+            std::cerr << "\nA triangle doesn't have the proper opposite face for a vertex:\n"               //
+                      << "  The triangle opposite the vertex " << tri.b << " in triangle " << i             //
+                      << " is set to triangle " << face.beta << ".\n"                                       //
+                      << "  It should contain vertices (" << tri.a << " ; " << tri.c << ") in that order\n" //
+                      << "  Instead, that triangle has the following vertices: " << tri_b << '\n';
+            correct = false;
         }
 
         if(!(tri_c.a == tri.b && tri_c.b == tri.a) && //
            !(tri_c.b == tri.b && tri_c.c == tri.a) && //
            !(tri_c.c == tri.b && tri_c.a == tri.a)) {
-            std::cerr << "A triangle doesn't have the proper opposite face for a vertex:\n";
-            std::cerr << "tri   (" << i << "): " << tri << ", " << face << "\n";
-            std::cerr << "tri_c (" << face.gamma << "): " << tri_c << ", " << faces[face.gamma] << '\n';
-            return false;
+            std::cerr << "\nA triangle doesn't have the proper opposite face for a vertex:\n"               //
+                      << "  The triangle opposite the vertex " << tri.c << " in triangle " << i             //
+                      << " is set to triangle " << face.gamma << ".\n"                                      //
+                      << "  It should contain vertices (" << tri.b << " ; " << tri.a << ") in that order\n" //
+                      << "  Instead, that triangle has the following vertices: " << tri_c << '\n';
+            correct = false;
         }
     }
 
-    return true;
+    return correct;
 }
 
 unsigned int Mesh::get_local_index(unsigned int vertex, unsigned int face) {
@@ -609,4 +585,14 @@ void Mesh::draw_imgui_table() const {
 
         ImGui::EndTable();
     }
+}
+
+void Mesh::emplace_tri_and_face(unsigned int a,
+                                unsigned int b,
+                                unsigned int c,
+                                unsigned int alpha,
+                                unsigned int beta,
+                                unsigned int gamma) {
+    triangles.emplace_back(a, b, c);
+    faces.emplace_back(alpha, beta, gamma);
 }

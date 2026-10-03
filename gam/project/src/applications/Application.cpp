@@ -54,7 +54,7 @@ void Application::run() {
     // mesh.load_from_off("data/r2.off");
 
     float radius = 1.0f;
-    mesh.make_rect(-radius, -radius, radius, radius);
+    mesh.make_bounding_box_2D(-radius, -radius, radius, radius);
 
     mesh.compute_normals();
     mesh.bind_buffers();
@@ -103,8 +103,8 @@ void Application::run() {
         }
 
         if(ImGui::Button("Edge Flip")) {
-            // mesh.edge_flip(0, mesh.faces[0].alpha);
-            mesh.edge_flip(0, 1);
+            mesh.edge_flip(0, mesh.faces[0].beta);
+            // mesh.edge_flip(0, 1);
             mesh.compute_normals();
             mesh.bind_buffers();
         }

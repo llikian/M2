@@ -12,6 +12,12 @@
 
 #define EPSILON 1e-4
 
+#define PRINT_V(V)             #V << " = " << V
+#define PRINT_VS(V)            #V << " = " << V << " ; "
+#define PRINT_VAR(V)           std::cout << PRINT_V(V) << '\n';
+#define PRINT_2VAR(A, B)       std::cout << PRINT_VS(A) << PRINT_VS(B) << '\n';
+#define PRINT_4VAR(A, B, C, D) std::cout << PRINT_VS(A) << PRINT_VS(B) << PRINT_VS(C) << PRINT_VS(D) << '\n';
+
 bool is_whitespace(const std::string& line);
 
 int orientation_3P(const vec2& a, const vec2& b, const vec2& c);
@@ -54,8 +60,6 @@ public:
 
     void make_bounding_box_2D(float min_x, float min_y, float max_x, float max_y);
 
-    void make_rect(float min_x, float min_y, float max_x, float max_y);
-
     void bind_buffers();
     void draw();
     void compute_normals();
@@ -72,6 +76,13 @@ public:
     unsigned int get_local_index(unsigned int vertex, unsigned int face);
 
     void draw_imgui_table() const;
+
+    void emplace_tri_and_face(unsigned int a,
+                              unsigned int b,
+                              unsigned int c,
+                              unsigned int alpha,
+                              unsigned int beta,
+                              unsigned int gamma);
 
     // private:
     std::vector<Vertex> vertices;
